@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { chunkDocument } from "./chunker.js";
-import type { DocumentVersion } from "./types.js";
+import {ValidatedDocumentVersion} from "./schema.js";
 
-const document: DocumentVersion = {
+const document: ValidatedDocumentVersion = {
     documentId: "remote-work-policy",
     versionId: "v1",
     title: "Remote Work Policy",

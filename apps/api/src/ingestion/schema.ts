@@ -9,6 +9,11 @@ export const DocumentVersionSchema=z.object({
     validFrom: z.iso.date(),
     validUntil: z.iso.date().nullable(),
     content: z.string().min(1),
-});
+}).refine((document)=>document.validUntil===null || document.validUntil>document.validFrom,
+    {
+        message:"validUntil must be later than validFrom",
+        path:["validUntil"]
+    }
+);
 
 export type ValidatedDocumentVersion=z.infer<typeof DocumentVersionSchema>;

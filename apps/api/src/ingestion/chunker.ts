@@ -1,6 +1,7 @@
-import type {DocumentVersion, DocumentChunk} from "./types.js";
+import type {ValidatedDocumentVersion} from "./schema.js";
+import type {DocumentChunk} from "./types.js";
 
-export function chunkDocument(document:DocumentVersion, maxWords:number=40, overlapWords:number=5) : DocumentChunk[]{
+export function chunkDocument(document:ValidatedDocumentVersion, maxWords:number=40, overlapWords:number=5) : DocumentChunk[]{
     if(!Number.isInteger(maxWords) || maxWords<=0)
         throw new Error("maxWords must be a positive Integer");
     if(!Number.isInteger(overlapWords) || overlapWords<0 || overlapWords>=maxWords)

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {resolve} from "node:path";
 import {loadDocument} from "./loader.js";
 import { chunkDocument } from "./chunker.js";
+import {DocumentVersionSchema} from "./schema.js"
 
 async function main(){
     const v1=await loadDocument(
@@ -27,6 +28,24 @@ async function main(){
 
     assert.ok(chunksV1.every((chunk)=>chunk.versionId==="v1"));
     assert.ok(chunksV2.every((chunk)=>chunk.versionId==="v2"));
+    
+    assert.throws(
+        () =>
+            DocumentVersionSchema.parse({
+                ...v1,
+                validFrom: "2026-06-01",
+                validUntil: "2026-01-01",
+            }),
+        /validUntil must be later than validFrom/,
+    );
+
+    // An open-ended validity interval must remain valid.
+    assert.doesNotThrow(() =>
+        DocumentVersionSchema.parse({
+            ...v2,
+            validUntil: null,
+        }),
+    );
 
     console.log("Loader + chunker integration tests passed!");
     console.log("V1 chunks:", chunksV1.length);
