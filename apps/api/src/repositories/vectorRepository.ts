@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { qdrant } from "../vectorStore.js";
-import { embedDocument } from "../embeddings.js";
+import { embedDocument, embedQuery } from "../embeddings.js";
 import type { DocumentChunk } from "../ingestion/types.js";
 
 const COLLECTION_NAME = "chronosearch_chunks";
-    
+
 function createPointId(chunkId: string): string {
     const hash = createHash("sha256")
         .update(chunkId)
@@ -15,6 +15,10 @@ function createPointId(chunkId: string): string {
 
 export async function saveChunkVector(
     chunk: DocumentChunk,
+    validity: {
+        validFrom: string;
+        validUntil: string | null;
+    }
 ): Promise<void> {
     const embedding = await embedDocument(chunk.text);
     await qdrant.upsert(COLLECTION_NAME, {
@@ -29,8 +33,41 @@ export async function saveChunkVector(
                     versionId: chunk.versionId,
                     chunkIndex: chunk.chunkIndex,
                     text: chunk.text,
+                    validFrom: validity.validFrom,
+                    validUntil: validity.validUntil
                 },
             },
         ],
+    });
+}
+
+export interface SearchCandidate {
+    chunkId: string,
+    score: number;
+}
+
+export async function searchSimilarChunks(
+    query: string,
+    limit: number = 10
+): Promise<SearchCandidate[]> {
+    const embedding = await embedQuery(query);
+
+    const results = await qdrant.query(COLLECTION_NAME, {
+        query: embedding,
+        limit,
+        with_payload: true,
+        with_vector: false,
+    });
+    return results.points.flatMap((result) => {
+        const chunkId = result.payload?.chunkId;
+
+        if (typeof chunkId !== "string") {
+            return [];
+        }
+
+        return [{
+            chunkId,
+            score: result.score,
+        }];
     });
 }

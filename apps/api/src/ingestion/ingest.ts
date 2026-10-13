@@ -34,7 +34,13 @@ export async function ingestDocuments(filePaths: string[]): Promise<{
     }
 
     for (const chunk of chunks) {
-        await saveChunkVector(chunk);
+        const document = documents.find(d => d.documentId === chunk.documentId && d.versionId === chunk.versionId);
+        if (!document)
+            throw new Error(`Document not found for chunk ${chunk.chunkId}`);
+        await saveChunkVector(chunk, {
+            validFrom: document.validFrom,
+            validUntil: document.validUntil
+        });
     }
 
     return { documents, chunks };

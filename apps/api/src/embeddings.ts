@@ -23,3 +23,16 @@ export async function embedDocument(text: string): Promise<number[]> {
 
     return embedding;
 }
+
+export async function embedQuery(query:string):Promise<number[]>{
+    const response = await voyage.embed({
+        input:[query],
+        model:"voyage-4-lite",
+        inputType:"query",
+    });
+    const embedding=response.data?.[0].embedding;
+    if(!embedding){
+        throw new Error("Voyage returned no embedding");
+    }
+    return embedding;
+}
