@@ -1,235 +1,163 @@
 # ChronoSearch
 
-ChronoSearch is a temporal Retrieval-Augmented Generation (RAG) project designed to retrieve evidence from the document version that was valid at a requested point in time.
+ChronoSearch is a temporal retrieval-augmented question-answering project. Given a question and a target date, its API modules find semantically relevant document chunks, keep only chunks from versions valid on that date, and can generate an evidence-grounded answer with Gemini.
 
-The project is being built incrementally as a hands-on learning project, with TypeScript introduced and learned through implementation.
+## Current state
 
-> **Current status:** Stage 2 — document ingestion, PostgreSQL persistence, embeddings, and Qdrant vector storage — has been implemented and verified on the sample documents. Temporal retrieval and answer generation are not implemented yet.
+- The API contains document ingestion, temporal retrieval, Gemini embeddings, Gemini answer generation, and retrieval/answer evaluation code.
+- The Express server currently exposes only `GET /health`. The RAG pipeline is available through the `answerQuestion()` function in `apps/api/src/rag.ts`; it is not yet exposed as an HTTP question-answering endpoint.
+- The Next.js page checks the API health endpoint and displays its status. It does not yet provide a question or date input.
 
-## Core idea
+## How temporal retrieval works
 
-Traditional semantic retrieval finds text that is similar to a question. Temporal RAG also needs to establish **which version of that text was valid at the requested time**.
+Document versions use half-open validity intervals: `[validFrom, validUntil)`. A version is valid on date `D` when `validFrom <= D` and `D < validUntil`; a `null` `validUntil` means the version has no scheduled end date.
 
-For example, ChronoSearch contains two versions of a remote-work policy:
+For a question and target date, the retrieval module:
 
-- **v1:** valid from `2024-01-01` until `2026-01-01` (end exclusive).
-- **v2:** valid from `2026-01-01` onward.
+1. Embeds the question with Gemini using the `RETRIEVAL_QUERY` task type.
+2. Searches the `chronosearch_chunks` Qdrant collection for the 10 most similar chunks by default.
+3. Checks those candidate chunk IDs against PostgreSQL and keeps only chunks whose versions were valid on the target date.
+4. Passes the validated evidence to Gemini for answer generation. If no evidence remains, the answer module returns an abstention message.
 
-A future question about the policy in 2025 should use v1, while a question about 2026 should use v2, assuming the requested date falls within the corresponding validity interval.
+Temporal filtering happens after the top-10 vector search, so the number of returned chunks can be lower than 10. `retrieveTemporalChunks()` validates target dates in `YYYY-MM-DD` format.
 
-## Technology stack
-
-| Component | Role |
-|---|---|
-| TypeScript / Node.js | API and ingestion implementation |
-| Express | API framework already set up in `apps/api` |
-| Next.js | Web application in `apps/web` |
-| Supabase PostgreSQL | Document metadata, version history, validity dates, and chunk text |
-| Voyage AI (`voyage-4-lite`) | Text embedding generation; tested output dimension: 1,024 |
-| Qdrant Cloud | Vector storage and semantic similarity search |
-| Zod | Runtime input validation |
-| Node.js test scripts / `tsx` | Running TypeScript verification scripts |
-
-## Architecture so far
+## Architecture
 
 ```text
-Sample JSON documents
+JSON document versions
         |
         v
-JSON loader + Zod validation
+Zod validation + overlap checks
         |
         v
-Temporal version-overlap validation
-        |
-        v
-Text chunking
+40-word chunks (5-word overlap)
         |
         +----------------------------+
         |                            |
         v                            v
-Supabase PostgreSQL             Voyage AI
-(document/version/chunk data)   (text -> vector)
-                                     |
-                                     v
-                                  Qdrant
-                           (vector + payload metadata)
+PostgreSQL                    Gemini embeddings
+documents, versions,                |
+and chunk text                      v
+        |                         Qdrant
+        +---- temporal check ---- candidate chunk IDs
+                                      |
+                                      v
+                                Gemini answer
 ```
 
-PostgreSQL is the authoritative store for document versions and temporal validity. Qdrant stores vectors and payload metadata (`chunkId`, `documentId`, `versionId`, `chunkIndex`, and chunk text) for retrieval.
+PostgreSQL stores the authoritative document, version, validity, and chunk records. Qdrant stores 768-dimensional cosine vectors and chunk metadata. Gemini supplies both embeddings and generated answers.
 
 ## Repository layout
 
 ```text
-ChronoSearch/
-├── apps/
-│   ├── api/
-│   │   ├── migrations/
-│   │   │   ├── 001_initial_schema.sql
-│   │   │   └── 002_enable_rls.sql
-│   │   ├── sample-docs/
-│   │   │   ├── remote-work-v1.json
-│   │   │   └── remote-work-v2.json
-│   │   ├── src/
-│   │   │   ├── ingestion/
-│   │   │   │   ├── types.ts
-│   │   │   │   ├── schema.ts
-│   │   │   │   ├── loader.ts
-│   │   │   │   ├── chunker.ts
-│   │   │   │   ├── temporal.ts
-│   │   │   │   ├── versionValidator.ts
-│   │   │   │   ├── ingest.ts
-│   │   │   │   ├── loader.test.ts
-│   │   │   │   ├── chunker.test.ts
-│   │   │   │   ├── temporal.test.ts
-│   │   │   │   ├── versionValidator.test.ts
-│   │   │   │   └── ingest.test.ts
-│   │   │   ├── repositories/
-│   │   │   │   ├── documentRepository.ts
-│   │   │   │   ├── vectorRepository.ts
-│   │   │   │   └── vectorRepository.test.ts
-│   │   │   ├── db.ts
-│   │   │   ├── db.test.ts
-│   │   │   ├── embeddings.ts
-│   │   │   ├── embeddings.test.ts
-│   │   │   ├── vectorStore.ts
-│   │   │   ├── qdrant.test.ts
-│   │   │   └── createCollection.ts
-│   │   └── .env                 # Local secrets; must not be committed
-│   └── web/                     # Next.js application
-└── README.md
+apps/
+  api/
+    migrations/       PostgreSQL schema and RLS migrations
+    sample-docs/      Sample policy versions and evaluation dataset
+    src/
+      ingestion/      JSON validation, temporal checks, chunking, ingestion
+      retrieval/      Date-aware retrieval and validation
+      generation/     Evidence-grounded answer generation
+      repositories/   PostgreSQL and Qdrant access
+      evaluation/     Retrieval and answer evaluation scripts
+      scripts/         Collection and sample-data utilities
+      server.ts        Express health endpoint
+  web/
+    app/              Next.js health-status page
+README.md
 ```
 
-This is the intended/currently reported layout; check the working tree if files have been renamed or moved.
+The API and web app are separate npm projects; install dependencies from each app directory.
 
-## Stage 2: ingestion and vector storage
-
-The current ingestion flow in `apps/api/src/ingestion/ingest.ts`:
-
-1. Loads each JSON document.
-2. Validates its fields and dates with Zod.
-3. Rejects overlapping validity intervals for versions of the same document.
-4. Chunks each document's content.
-5. Saves document metadata, version records, and chunks to PostgreSQL.
-6. Generates one embedding per chunk through Voyage AI.
-7. Upserts each vector into Qdrant with a deterministic point ID and identifying payload metadata.
-
-### PostgreSQL schema
-
-- `documents`: one row per logical document.
-- `document_versions`: version metadata, content, `valid_from`, `valid_until`, and a generated `daterange` validity period. An exclusion constraint prevents overlapping version intervals for the same document.
-- `document_chunks`: chunk text and identifiers, linked to a document version.
-
-The validity interval convention is half-open: `[valid_from, valid_until)`. A `NULL` end date represents an open-ended interval.
-
-### Qdrant collection
-
-- Collection: `chronosearch_chunks`
-- Vector dimension: `1024`
-- Distance: `Cosine`
-- Payload fields: `chunkId`, `documentId`, `versionId`, `chunkIndex`, `text`
-
-## Setup
-
-### Requirements
+## Requirements
 
 - Node.js and npm
-- A Supabase project / PostgreSQL connection string
-- A Qdrant Cloud cluster and API key
-- A Voyage AI API key
+- A PostgreSQL database (the project has Supabase-compatible migrations)
+- A Qdrant instance
+- A Google Gemini API key with access to the configured embedding and generation models
 
-### API environment variables
+## Configure the API
 
-Create `apps/api/.env` locally:
+Create `apps/api/.env`:
 
 ```env
 DATABASE_URL="your-postgresql-connection-string"
-QDRANT_URL="your-qdrant-cluster-url"
+QDRANT_URL="your-qdrant-url"
 QDRANT_API_KEY="your-qdrant-api-key"
-VOYAGE_API_KEY="your-voyage-api-key"
+GEMINI_API_KEY="your-gemini-api-key"
+GEMINI_MODEL="your-supported-gemini-generation-model"
+# Optional; defaults to gemini-embedding-001
+EMBEDDING_MODEL="gemini-embedding-001"
 ```
 
-Never commit `.env` or share secret values. Confirm the root `.gitignore` excludes `.env` files.
+The embedding code requests 768 dimensions, and the Qdrant collection must use the same vector size. `GEMINI_MODEL` has no code default and is required when generating an answer with evidence. Keep `.env` files and credentials out of version control.
 
-### Install and build
+## Database and vector setup
 
-From the API directory:
+From the API directory, install dependencies and build:
 
 ```powershell
 cd apps/api
-npm install
+npm ci
 npm run build
 ```
 
-### Database migrations
+Apply these SQL files to the configured PostgreSQL database, in order, if they have not already been applied:
 
-Run the SQL in `migrations/001_initial_schema.sql` and `migrations/002_enable_rls.sql` in the Supabase SQL Editor, if they have not already been applied. These files are currently managed manually rather than by an automated migration runner.
+1. `migrations/001_initial_schema.sql`
+2. `migrations/002_enable_rls.sql`
 
-### Create the Qdrant collection
+Migrations are applied manually; there is no migration runner. The initial schema creates `documents`, `document_versions`, and `document_chunks`, and prevents overlapping validity intervals for versions of the same document. The RLS migration enables row-level security but does not create policies; review database roles and policies before relying on RLS for access control.
 
-After environment variables are configured, run:
-
-```powershell
-npx tsx src/createCollection.ts
-```
-
-The script checks whether `chronosearch_chunks` already exists before creating it.
-
-## Verification commands
-
-Run from `apps/api`:
+Create the Qdrant collection, then load the sample policy versions:
 
 ```powershell
-npm run build
-npx tsx src/db.test.ts
-npx tsx src/qdrant.test.ts
-npx tsx src/embeddings.test.ts
-npx tsx src/repositories/vectorRepository.test.ts
-npx tsx src/ingestion/ingest.test.ts
+npx tsx src/scripts/createCollection.ts
+npx tsx src/scripts/reingest.ts
 ```
 
-The ingestion and vector repository tests call remote services and write data; they are integration checks rather than isolated unit tests. Re-running them can affect existing records, so idempotency and cleanup should be addressed before relying on repeated test execution.
+Run these commands with `apps/api` as the working directory. The collection is named `chronosearch_chunks`, with 768 dimensions and cosine distance. The sample files in `sample-docs/` show the expected JSON fields: `documentId`, `versionId`, `title`, `source`, `publishedAt`, `validFrom`, `validUntil`, and `content`.
 
-## Current verification status
+The sample ingestion utility inserts version and chunk rows into PostgreSQL. It is not safe to treat repeated runs as a clean upsert: those rows have unique keys, and the current repository catches database write errors without returning them to the caller. The separate `recreateCollection.ts` utility deletes and recreates the Qdrant collection, which removes its vectors.
 
-Verified during development:
+## Run the applications
 
-- TypeScript build passes.
-- Supabase PostgreSQL connection works.
-- Voyage embedding generation works and returns 1,024 dimensions.
-- Qdrant connectivity works.
-- Qdrant collection exists with the expected vector configuration.
-- Sample ingestion test passes.
-- Supabase contains two sample chunks for `v1` and `v2`.
-- Qdrant contains two points with matching version payloads.
+Start the API in one terminal:
 
-## Roadmap
+```powershell
+cd apps/api
+npm run dev
+```
 
-### Stage 3 — Temporal retrieval
-- Accept a user question and target date.
-- Embed the question using Voyage with the correct query input type.
-- Search Qdrant for semantically relevant chunks.
-- Filter/validate candidates against PostgreSQL temporal validity.
-- Return evidence from the version valid on the requested date.
-- Test cases where semantic similarity points to the wrong historical version.
+The server listens on `http://localhost:3000`; check it at `http://localhost:3000/health`.
 
-### Stage 4 — RAG answer generation
-- Supply retrieved temporal evidence to an LLM.
-- Generate grounded answers with citations/references to source versions.
-- Handle insufficient evidence and dates with no valid version.
+Start the web app in another terminal:
 
-### Stage 5 — Evaluation and application integration
-- Build a small temporal evaluation set.
-- Measure retrieval correctness and answer grounding.
-- Connect the API to the Next.js frontend.
-- Improve error handling, idempotency, reconciliation, observability, and security.
+```powershell
+cd apps/web
+npm ci
+npm run dev -- --port 3001
+```
 
-## Important caveats
+Open `http://localhost:3001`. The page calls `http://localhost:3000/health`, and the API CORS configuration allows that web origin. The health URL and ports are currently hard-coded in the source.
 
-- PostgreSQL and Qdrant do not participate in one shared transaction. A partial failure can leave their data inconsistent; recovery/reconciliation is future work.
-- Repeated ingestion is not yet fully verified as idempotent, especially for PostgreSQL inserts.
-- Row Level Security has been enabled on the database tables, but the backend connection uses a database connection string. Do not assume RLS protects the application until the connection role and policies have been reviewed.
-- Keep all credentials in environment variables and rotate any key that is accidentally exposed.
+For a production API process, run `npm run build` and then `npm start` from `apps/api`. For the web app, run `npm run build` and then `npm start` from `apps/web`. The web package also provides `npm run lint`.
 
-## Learning approach
+## Evaluation
 
-This is a hands-on TypeScript learning project. Prefer small, incremental changes to existing files, explain unfamiliar TypeScript concepts when they appear, preserve existing logic unless a change is required, and verify each milestone before proceeding.
+The API package's `evaluate` script runs both retrieval and answer evaluation against `sample-docs/evaluation-dataset.json`:
+
+```powershell
+cd apps/api
+npm run evaluate
+```
+
+It requires the sample documents to have been ingested and calls Qdrant and Gemini. The answer evaluation calls the generation model for each case and may incur API usage. These checks use a small sample set and simple expected-version/key-phrase assertions; their pass rate is not a general accuracy guarantee.
+
+## Important limitations
+
+- There is no HTTP route for asking questions yet; call `answerQuestion(question, targetDate)` from API code.
+- PostgreSQL and Qdrant writes are separate operations and do not share a transaction, so a partial ingestion failure can leave them out of sync.
+- The ingestion flow and its database writes are not currently safe for repeated runs without handling existing records.
+- Row-level security is enabled without policies in the checked-in migration. The API connects through `DATABASE_URL`; verify the database role and policies before relying on RLS.
+- Keep API keys and database credentials private, and rotate any secret that is accidentally exposed.
