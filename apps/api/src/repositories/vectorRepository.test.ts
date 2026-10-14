@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { loadDocument } from "../ingestion/loader.js";
 import { chunkDocument } from "../ingestion/chunker.js";
 import { saveChunkVector } from "./vectorRepository.js";
-import { qdrant } from "../vectorStore.js";
+import { qdrant } from "../config/vectorStore.js";
 
 async function main(): Promise<void> {
     try {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { qdrant } from "../vectorStore.js";
+import { qdrant } from "../config/vectorStore.js";
 import { embedDocument, embedQuery } from "../embeddings.js";
 import type { DocumentChunk } from "../ingestion/types.js";
 

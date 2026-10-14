@@ -1,4 +1,4 @@
-import { qdrant } from "./vectorStore.js";
+import { qdrant } from "./config/vectorStore.js";
 
 async function main(): Promise<void> {
     try {

@@ -1,4 +1,4 @@
-import { pool } from "../db.js";
+import { pool } from "../config/db.js";
 import type { ValidatedDocumentVersion } from "../ingestion/schema.js";
 import type { DocumentChunk } from "../ingestion/types.js";
 

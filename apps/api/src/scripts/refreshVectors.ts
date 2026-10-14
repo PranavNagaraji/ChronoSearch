@@ -1,6 +1,6 @@
-import { ingestDocuments } from "./ingestion/ingest.js";
+import { ingestDocuments } from "../ingestion/ingest.js";
 
-async function main(): Promise<void> {
+async function main() {
     await ingestDocuments([
         "sample-docs/remote-work-v1.json",
         "sample-docs/remote-work-v2.json",
