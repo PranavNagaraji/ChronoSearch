@@ -1,4 +1,3 @@
-
 import { qdrant } from "../config/vectorStore.js";
 
 const COLLECTION_NAME = "chronosearch_chunks";

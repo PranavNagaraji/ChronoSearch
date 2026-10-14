@@ -1,0 +1,58 @@
+[
+    {
+        "id": "eval-001",
+        "question": "What was the annual equipment allowance?",
+        "targetDate": "2025-06-01",
+        "expectedVersion": "v1",
+        "expectedAnswer": "$300",
+        "expectedRetrievedChunks": 1
+    },
+    {
+        "id": "eval-002",
+        "question": "What was the annual equipment allowance?",
+        "targetDate": "2026-01-01",
+        "expectedVersion": "v2",
+        "expectedAnswer": "$600",
+        "expectedRetrievedChunks": 1
+    },
+    {
+        "id": "eval-003",
+        "question": "What was the remote work arrangement?",
+        "targetDate": "2025-06-01",
+        "expectedVersion": "v1",
+        "expectedAnswer": "two days per week",
+        "expectedRetrievedChunks": 1
+    },
+    {
+        "id": "eval-004",
+        "question": "What was the remote work arrangement?",
+        "targetDate": "2026-01-01",
+        "expectedVersion": "v2",
+        "expectedAnswer": "fully remotely with manager approval",
+        "expectedRetrievedChunks": 1
+    },
+    {
+        "id": "eval-005",
+        "question": "What was the equipment allowance before the policy began?",
+        "targetDate": "2023-12-31",
+        "expectedVersion": null,
+        "expectedAnswer": null,
+        "expectedRetrievedChunks": 0
+    },
+    {
+        "id": "eval-006",
+        "question": "What was the annual equipment allowance?",
+        "targetDate": "2024-01-01",
+        "expectedVersion": "v1",
+        "expectedAnswer": "$300",
+        "expectedRetrievedChunks": 1
+    },
+    {
+        "id": "eval-007",
+        "question": "What was the annual equipment allowance?",
+        "targetDate": "2025-12-31",
+        "expectedVersion": "v1",
+        "expectedAnswer": "$300",
+        "expectedRetrievedChunks": 1
+    }
+]
