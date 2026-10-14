@@ -1,38 +1,51 @@
 import "dotenv/config";
-import { VoyageAIClient } from "voyageai";
+import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.VOYAGE_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-    throw new Error("VOYAGE_API_KEY is not configured");
+    throw new Error("GEMINI_API_KEY is not configured");
 }
 
-export const voyage = new VoyageAIClient({ apiKey });
+const googleAI = new GoogleGenAI({ apiKey });
+
+const EMBEDDING_MODEL = "gemini-embedding-001";
+const EMBEDDING_DIMENSIONS = 768;
 
 export async function embedDocument(text: string): Promise<number[]> {
-    const response = await voyage.embed({
-        input: [text],
-        model: "voyage-4-lite",
-        inputType: "document",
+    const response = await googleAI.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: text,
+        config: {
+            taskType: "RETRIEVAL_DOCUMENT",
+            outputDimensionality: EMBEDDING_DIMENSIONS,
+        },
     });
-    const embedding = response.data?.[0]?.embedding;
+
+    const embedding = response.embeddings?.[0]?.values;
 
     if (!embedding) {
-        throw new Error("Voyage returned no embedding");
+        throw new Error("Google returned no document embedding");
     }
 
     return embedding;
 }
 
-export async function embedQuery(query:string):Promise<number[]>{
-    const response = await voyage.embed({
-        input:[query],
-        model:"voyage-4-lite",
-        inputType:"query",
+export async function embedQuery(query: string): Promise<number[]> {
+    const response = await googleAI.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: query,
+        config: {
+            taskType: "RETRIEVAL_QUERY",
+            outputDimensionality: EMBEDDING_DIMENSIONS,
+        },
     });
-    const embedding=response.data?.[0].embedding;
-    if(!embedding){
-        throw new Error("Voyage returned no embedding");
+
+    const embedding = response.embeddings?.[0]?.values;
+
+    if (!embedding) {
+        throw new Error("Google returned no query embedding");
     }
+
     return embedding;
 }

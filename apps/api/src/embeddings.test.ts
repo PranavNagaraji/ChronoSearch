@@ -1,22 +1,31 @@
-import { embedDocument } from "./embeddings.js";
+
+import assert from "node:assert/strict";
+import "dotenv/config";
+import { embedDocument, embedQuery } from "./embeddings.js";
 
 async function main(): Promise<void> {
-    const embedding = await embedDocument(
-        "Employees may work remotely two days per week."
-    );
-
-    console.log("Embedding generated successfully!");
-    console.log("Vector dimensions:", embedding.length);
-    console.log("First five values:", embedding.slice(0, 5));
-
-    if (embedding.length !== 1024) {
-        throw new Error(
-            `Expected 1024 dimensions, got ${embedding.length}`
+    try {
+        const documentEmbedding = await embedDocument(
+            "The annual equipment allowance is $600."
         );
+
+        const queryEmbedding = await embedQuery(
+            "What is the equipment allowance?"
+        );
+
+        assert.equal(documentEmbedding.length, 768);
+        assert.equal(queryEmbedding.length, 768);
+
+        assert.ok(documentEmbedding.every(Number.isFinite));
+        assert.ok(queryEmbedding.every(Number.isFinite));
+
+        console.log("Document dimensions:", documentEmbedding.length);
+        console.log("Query dimensions:", queryEmbedding.length);
+        console.log("Google embedding tests passed!");
+    } catch (error: unknown) {
+        console.error("Google embedding tests failed:", error);
+        process.exitCode = 1;
     }
 }
 
-main().catch((error: unknown) => {
-    console.error("Embedding test failed:", error);
-    process.exitCode = 1;
-});
+main();
