@@ -9,7 +9,7 @@ if (!apiKey) {
 
 const googleAI = new GoogleGenAI({ apiKey });
 
-const EMBEDDING_MODEL = "gemini-embedding-001";
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL ?? "gemini-embedding-001";
 const EMBEDDING_DIMENSIONS = 768;
 
 export async function embedDocument(text: string): Promise<number[]> {
