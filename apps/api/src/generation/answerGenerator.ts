@@ -89,7 +89,9 @@ export async function generateAnswer(
         }
     ));
 
-    let response;
+    let response: Awaited<
+        ReturnType<typeof gemini.models.generateContent>
+    >;
 
     for (let attempt = 0; ; attempt++) {
         try {
@@ -112,6 +114,9 @@ ${JSON.stringify(evidence, null, 2)}
 Answer the user's question according to the system instructions.`,
                 config: {
                     systemInstruction: CHRONOSEARCH_SYSTEM_PROMPT,
+                    httpOptions: {
+                        timeout: 30_000,
+                    },
                 },
             });
 
