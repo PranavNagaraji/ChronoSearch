@@ -212,20 +212,14 @@ The boundary date belongs to `v2`: `validUntil` is exclusive, while `validFrom` 
 
 ## Evaluation
 
-Run both evaluation scripts from `apps/api` after the sample data is ingested and the database, Qdrant, and Gemini settings are available:
+Run the build and both evaluation suites from `apps/api` after the sample data is ingested and the database, Qdrant, and Gemini settings are available:
 
-```powershell
+```arduino
+npm run build
 npm run evaluate
 ```
 
-The script runs retrieval evaluation followed by answer evaluation against `sample-docs/evaluation-dataset.json`. Retrieval checks that returned chunks belong to the expected version, or that no chunks are returned when no version should be valid. Answer evaluation checks for the expected key phrase, or performs a small abstention check for cases with no evidence; it does not verify every generated claim.
-
-Latest verified results on the current seven-case sample dataset:
-
-- **Retrieval:** 7/7 cases passed (100%).
-- **Answers:** 7/7 cases passed (100%).
-
-These results describe this sample dataset only and do not establish universal accuracy. Gemini availability can be intermittent. Answer generation retries selected HTTP statuses (408, 429, 500, 502, 503, and 504) up to three times after the initial attempt. Results are not guaranteed to reproduce across model versions or provider conditions.
+The latest successful run compiled TypeScript successfully, passed all 7 retrieval cases (100.00%), and passed all 7 answer cases (100.00%). These results apply to the current seven-case dataset only. See the [detailed evaluation report](docs/evaluation-results.md) for per-case results, representative generated answers, retry observations, and limitations.
 
 ## Limitations and future improvements
 
